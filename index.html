@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>京东信息表-成都青鸟维安科技有限公司</title>
+	<script src="js/vue.js"></script>
+	<!-- 引入样式 https://unpkg.com/element-ui/lib/theme-chalk/index.css -->
+	<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+	
+	<!-- 引入组件库 -->
+	<script src="js/elementui.js"></script>
+</head>
+
+<body>
+	<div id="app">
+		<div class="content">
+			<div>
+				<div class="caption">京东信息表</div>
+				<div class="search-container">
+					<div class="block">
+						<span class="demonstration">按日期搜索</span>
+						<el-date-picker v-model="value1" type="daterange" align="right" unlink-panels range-separator="至"
+							start-placeholder="开始日期" end-placeholder="结束日期" :picker-options="pickerOptions" @change="handleSearch"
+							clearable>
+						</el-date-picker>
+						<el-button type="primary" @click="searchClick">查询</el-button>
+					</div>
+				</div>
+				<div class="table-container">
+					<el-table :data="tableData" height="250" border style="width: 100%">
+						<!-- <el-table-column prop="tableData" label="序号" width="100">
+						</el-table-column> -->
+						<el-table-column prop="id" label="ID" width="100">
+						</el-table-column>
+						<el-table-column prop="trayId" label="托盘ID" width="180">
+						</el-table-column>
+						<el-table-column prop="epc" label="EPC" width="380">
+						</el-table-column>
+						<el-table-column prop="rfid" label="射频识别">
+						</el-table-column>
+						<el-table-column prop="jdRfid" label="京东Rfid">
+						</el-table-column>
+						<el-table-column prop="createTime" label="创建时间">
+						</el-table-column>
+						<el-table-column prop="state" label="状态" width="100">
+						</el-table-column>
+					</el-table>
+				</div>
+				<div class="pagination-main">
+					<el-pagination background layout="prev, pager, next" :total="total" :page-size="listPostData.pageSize"
+						:current-page.sync="listPostData.pageNum" @current-change="handleCurrentChange">
+					</el-pagination>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</body>
+
+<script>
+	const app = {
+		data() {
+			return {
+				tableData: [],
+				value1: '',
+				total: 100,
+				currentPage: 1,
+				listPostData: {
+					pageNum: 1,
+					pageSize: 20,
+					startDateTime: "",//2026-04-23T11:30:52
+					endDateTime: ""
+				},
+				pickerOptions: {
+					shortcuts: [{
+						text: '最近一周',
+						onClick(picker) {
+							const end = new Date();
+							const start = new Date();
+							start.setTime(start.getTime() - 3600 * 1000 * 24 * 7);
+							picker.$emit('pick', [start, end]);
+						}
+					}, {
+						text: '最近一个月',
+						onClick(picker) {
+							const end = new Date();
+							const start = new Date();
+							start.setTime(start.getTime() - 3600 * 1000 * 24 * 30);
+							picker.$emit('pick', [start, end]);
+						}
+					}, {
+						text: '最近三个月',
+						onClick(picker) {
+							const end = new Date();
+							const start = new Date();
+							start.setTime(start.getTime() - 3600 * 1000 * 24 * 90);
+							picker.$emit('pick', [start, end]);
+						}
+					}]
+				},
+
+			}
+		},
+		methods: {
+			search() {
+				fetch('http://8.137.162.161:8080/api/rfid/page', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(this.listPostData)
+				}).then(res => {
+					if (!res.ok) {
+						throw new Error(`HTTP error! status: ${res.status}`);
+					}
+					return res.json();
+				}).then(res => {
+					console.log('请求成功:', res);
+					this.tableData = res.data.records;
+					this.total = res.data.total;
+				})
+
+			},
+			handleCurrentChange(val) {
+				this.listPostData.pageNum = val;
+				this.search();
+			},
+			handleSearch(val) {
+				//将这个时间转化为2026-04-23T00:00:00格式
+				// 解决时区问题，获取本地日期
+				const startDate = new Date(val[0]);
+				const endDate = new Date(val[1]);
+
+				// 格式化为YYYY-MM-DD
+				const startDateStr = startDate.getFullYear() + '-' +
+					String(startDate.getMonth() + 1).padStart(2, '0') + '-' +
+					String(startDate.getDate()).padStart(2, '0');
+
+				const endDateStr = endDate.getFullYear() + '-' +
+					String(endDate.getMonth() + 1).padStart(2, '0') + '-' +
+					String(endDate.getDate()).padStart(2, '0');
+
+				this.listPostData.startDateTime = startDateStr + 'T00:00:00';
+				this.listPostData.endDateTime = endDateStr + 'T23:59:59';
+				console.log('val', this.listPostData.startDateTime, this.listPostData.endDateTime);
+
+			},
+			searchClick() {
+				this.search();
+			},
+		},
+		mounted() {
+			this.search();
+		}
+	}
+	new Vue({
+		el: '#app',
+		data: app.data(),
+		methods: app.methods,
+		mounted: app.mounted
+	})
+</script>
+<style>
+	* {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	.content {
+		width: 100%;
+		height: 100vh;
+
+	}
+
+	.content>div {
+		display: flex;
+		height: 100%;
+		padding: 20px;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	thead * {
+		text-align: center !important;
+	}
+
+	.caption {
+		flex: none;
+		font-size: 30px;
+		font-weight: bold;
+		text-align: center;
+	}
+
+	.table-container {
+		flex: 1;
+		height: 1px;
+		text-align: center;
+	}
+
+	.search-container {
+		flex: none;
+	}
+
+	.pagination-main {
+		flex: none;
+		margin: auto;
+		float: right;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		max-width: 34px;
+	}
+
+	.el-table {
+		height: 100% !important;
+	}
+
+	.el-table .cell {
+		text-align: center;
+	}
+
+	.el-table .el-table__cell {
+		padding: 11.05px 0;
+	}
+</style>
