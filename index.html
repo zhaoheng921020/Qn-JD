@@ -7,9 +7,111 @@
 	<script src="js/vue.js"></script>
 	<!-- 引入样式 https://unpkg.com/element-ui/lib/theme-chalk/index.css -->
 	<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
-	
+
 	<!-- 引入组件库 -->
 	<script src="js/elementui.js"></script>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		.content {
+			width: 100%;
+			height: 100vh;
+		}
+
+		.content>div {
+			display: flex;
+			height: 100%;
+			padding: 15px;
+			flex-direction: column;
+			gap: 10px;
+			background: #f1f1f1;
+		}
+
+		thead * {
+			text-align: center !important;
+		}
+
+		.caption {
+			flex: none;
+			font-size: 30px;
+			font-weight: bold;
+			text-align: center;
+			margin-bottom: 10px;
+		}
+
+		.table-container {
+			flex: 1;
+			height: 1px;
+			text-align: center;
+		}
+
+		.search-container {
+			background: #ffffff;
+			flex: none;
+			display: flex;
+			gap: 20px;
+			align-items: center;
+			padding: 10px;
+			border-radius: 5px;
+
+			.block {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+
+				.demonstration {
+					width: 80px;
+					text-align: right;
+					font-size: 14px;
+				}
+
+				.el-date-editor .el-range-separator {
+					width: 10%;
+				}
+
+			}
+		}
+
+		.pagination-main {
+			flex: none;
+			margin: auto;
+			float: right;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			max-width: 34px;
+		}
+
+		.el-table {
+			height: 100% !important;
+		}
+
+		.el-table .cell {
+			text-align: center;
+		}
+
+		.el-table .el-table__cell {
+			padding: 11.05px 0;
+		}
+
+		.el-pagination {
+			.el-pager li {
+				padding: 0px;
+				margin: 0px 2px;
+
+				&.active {
+					background: #409EFF;
+					color: #ffffff;
+				}
+			}
+
+
+		}
+	</style>
 </head>
 
 <body>
@@ -22,15 +124,21 @@
 						<span class="demonstration">按日期搜索</span>
 						<el-date-picker v-model="value1" type="daterange" align="right" unlink-panels range-separator="至"
 							start-placeholder="开始日期" end-placeholder="结束日期" :picker-options="pickerOptions" @change="handleSearch"
-							clearable>
+							clearable size="small">
 						</el-date-picker>
-						<el-button type="primary" @click="searchClick">查询</el-button>
 					</div>
+					<div class="block">
+						<span class="demonstration">托盘ID</span>
+						<el-select v-model="listPostData.trayId" placeholder="请选择托盘ID" clearable size="small">
+							<el-option v-for="(item, index) in trayIdList" :key="item.id || index" :label="item.label || item"
+								:value="item.id || item"></el-option>
+						</el-select>
+					</div>
+					<el-button type="primary" @click="searchClick" size="small">查询</el-button>
 				</div>
 				<div class="table-container">
 					<el-table :data="tableData" height="250" border style="width: 100%">
-						<!-- <el-table-column prop="tableData" label="序号" width="100">
-						</el-table-column> -->
+
 						<el-table-column prop="id" label="ID" width="100">
 						</el-table-column>
 						<el-table-column prop="trayId" label="托盘ID" width="180">
@@ -40,16 +148,23 @@
 						<el-table-column prop="rfid" label="射频识别">
 						</el-table-column>
 						<el-table-column prop="jdRfid" label="京东Rfid">
+						</el-table-column>createTime
+						<el-table-column prop="updateTime" label="更新时间">
 						</el-table-column>
 						<el-table-column prop="createTime" label="创建时间">
 						</el-table-column>
-						<el-table-column prop="state" label="状态" width="100">
+						<el-table-column prop="state" label="状态" width="300">
 						</el-table-column>
 					</el-table>
 				</div>
 				<div class="pagination-main">
-					<el-pagination background layout="prev, pager, next" :total="total" :page-size="listPostData.pageSize"
+					<!-- <el-pagination background layout="prev, pager, next" :total="total" :page-size="listPostData.pageSize"
 						:current-page.sync="listPostData.pageNum" @current-change="handleCurrentChange">
+					</el-pagination> -->
+
+					<el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange"
+						:page-sizes="[10, 20, 50, 100]" :page-size="listPostData.pageSize" :current-page="listPostData.pageNum"
+						layout="total, sizes, prev, pager, next, jumper" :total="total">
 					</el-pagination>
 				</div>
 			</div>
@@ -62,16 +177,20 @@
 	const app = {
 		data() {
 			return {
+				apiBaseUrl: 'http://8.137.162.161:8080/',
+				listPostData: {
+					pageNum: 1,
+					pageSize: 20,
+					startDateTime: "",
+					endDateTime: "",
+					trayId: "" //托盘ID
+				},
 				tableData: [],
 				value1: '',
 				total: 100,
 				currentPage: 1,
-				listPostData: {
-					pageNum: 1,
-					pageSize: 20,
-					startDateTime: "",//2026-04-23T11:30:52
-					endDateTime: ""
-				},
+				trayIdList: [
+				],
 				pickerOptions: {
 					shortcuts: [{
 						text: '最近一周',
@@ -102,9 +221,32 @@
 
 			}
 		},
+		mounted() {
+			this.search();
+			this.getTrayList()
+		},
 		methods: {
+			getTrayList() {
+				fetch(this.apiBaseUrl + 'api/rfid/trays', {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+				}).then(res => {
+					if (!res.ok) {
+						throw new Error(`HTTP error! status: ${res.status}`);
+					}
+					return res.json();
+				}).then(res => {
+					console.log(res)
+					this.trayIdList = res.data;
+				}).catch(error => {
+					console.error('获取托盘ID列表失败:', error);
+					this.trayIdList = [];
+				});
+			},
 			search() {
-				fetch('http://8.137.162.161:8080/api/rfid/page', {
+				fetch(this.apiBaseUrl + 'api/rfid/page', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
@@ -116,8 +258,23 @@
 					}
 					return res.json();
 				}).then(res => {
-					console.log('请求成功:', res);
-					this.tableData = res.data.records;
+
+					// 先拿到原始列表
+					const records = res.data.records;
+
+					// 正确格式化时间 + 结构平铺（去掉多余的 item 包裹）
+					const newtableData = res.data.records.map(item => {
+						return {
+							...item, // 保留原对象所有字段
+							updateTime: item.updateTime.replace('T', ' '),
+							createTime: item.createTime.replace('T', ' ')
+						};
+					});
+
+					console.log(newtableData, '格式化后的数据');
+
+					// 赋值给表格数据源
+					this.tableData = newtableData;
 					this.total = res.data.total;
 				})
 
@@ -126,7 +283,19 @@
 				this.listPostData.pageNum = val;
 				this.search();
 			},
+			handleSizeChange(val) {
+				this.listPostData.pageSize = val;
+				this.listPostData.pageNum = 1;
+				this.search();
+			},
 			handleSearch(val) {
+				// 处理清除事件
+				if (!val) {
+					this.listPostData.startDateTime = "";
+					this.listPostData.endDateTime = "";
+					console.log('日期已清除');
+					return;
+				}
 				//将这个时间转化为2026-04-23T00:00:00格式
 				// 解决时区问题，获取本地日期
 				const startDate = new Date(val[0]);
@@ -147,12 +316,11 @@
 
 			},
 			searchClick() {
+				this.listPostData.pageNum = "1";
 				this.search();
 			},
 		},
-		mounted() {
-			this.search();
-		}
+
 	}
 	new Vue({
 		el: '#app',
@@ -161,67 +329,3 @@
 		mounted: app.mounted
 	})
 </script>
-<style>
-	* {
-		margin: 0;
-		padding: 0;
-		box-sizing: border-box;
-	}
-
-	.content {
-		width: 100%;
-		height: 100vh;
-
-	}
-
-	.content>div {
-		display: flex;
-		height: 100%;
-		padding: 20px;
-		flex-direction: column;
-		gap: 20px;
-	}
-
-	thead * {
-		text-align: center !important;
-	}
-
-	.caption {
-		flex: none;
-		font-size: 30px;
-		font-weight: bold;
-		text-align: center;
-	}
-
-	.table-container {
-		flex: 1;
-		height: 1px;
-		text-align: center;
-	}
-
-	.search-container {
-		flex: none;
-	}
-
-	.pagination-main {
-		flex: none;
-		margin: auto;
-		float: right;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		max-width: 34px;
-	}
-
-	.el-table {
-		height: 100% !important;
-	}
-
-	.el-table .cell {
-		text-align: center;
-	}
-
-	.el-table .el-table__cell {
-		padding: 11.05px 0;
-	}
-</style>
