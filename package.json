@@ -1,0 +1,9 @@
+{
+  "name": "qn-jd-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server for CORS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
