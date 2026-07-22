@@ -211,6 +211,7 @@
 					</el-pagination>
 				</div>
 			</div>
+
 		</div>
 	</div>
 </body>
@@ -234,10 +235,10 @@
 				currentPage: 1,
 				trayIdList: [
 				],
-				eventSource: null,// EventSource 实例
-				refreshTimer: null,// 自动刷新定时器
-				streamStatus: 'disconnected',// 长连接状态disconnected未连接  connected已连接
-				streamStatusText: '长连接未连接',// 长连接状态文本
+				eventSource: null,
+				refreshTimer: null,
+				streamStatus: 'disconnected',
+				streamStatusText: '长连接未连接',
 				pickerOptions: {
 					shortcuts: [{
 						text: '最近一周',
@@ -377,7 +378,7 @@
 					console.error('浏览器不支持 EventSource');
 					return;
 				}
-				// 防止重复建立多条 SSE 连接
+
 				if (this.eventSource) {
 					console.log('关闭现有连接');
 					this.eventSource.close();
@@ -387,9 +388,8 @@
 				console.log('尝试建立长连接:', this.streamUrl);
 
 				try {
-					// 创建 EventSource 实例，连接到指定 URL 的 SSE 服务器
 					this.eventSource = new EventSource(this.streamUrl);
-					// 监听 connect 事件
+
 					this.eventSource.addEventListener('connect', (event) => {
 						console.log('收到 connect 事件:', event);
 						this.streamStatus = 'connected';
@@ -404,7 +404,7 @@
 					this.eventSource.onopen = () => {
 						console.log('EventSource 连接已打开');
 					};
-					//
+
 					this.eventSource.onerror = (error) => {
 						console.error('EventSource 错误:', error);
 						console.log('EventSource readyState:', this.eventSource ? this.eventSource.readyState : 'null');
@@ -432,7 +432,6 @@
 					}, 3000);
 				}
 			},
-			// 处理实时更新事件
 			scheduleRealtimeReload(event) {
 				try {
 					const data = JSON.parse(event.data || '{}');
@@ -440,13 +439,13 @@
 				} catch (e) {
 					console.error('解析实时数据失败:', e);
 				}
-				// 防抖：短时间多次推送只执行一次查询
+
 				if (this.refreshTimer) {
 					clearTimeout(this.refreshTimer);
 				}
-				// 300ms 后执行查询
+
 				this.refreshTimer = setTimeout(() => {
-					console.log('300ms 后执行查询');
+					console.log('自动刷新数据');
 					this.search();
 				}, 300);
 			},
