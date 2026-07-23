@@ -270,7 +270,7 @@
 			:close-on-click-modal="false" :before-close="cancelOutbound">
 			<div class="">
 				<el-transfer filterable :filter-method="filterMethod" filter-placeholder="请输入托盘ID" v-model="outListPostData"
-					:data="trayIdList2" :titles="['勾选出库托盘☑️', '已选托盘❌']">
+					:data="trayIdList2" :titles="['请勾选出库托盘', '已选托盘库']">
 				</el-transfer>
 			</div>
 			<span slot="footer" class="dialog-footer">
@@ -295,8 +295,8 @@
 	const app = {
 		data() {
 			return {
-				apiBaseUrl: '/',
-				streamUrl: '/api/rfid/realtime/stream',
+				apiBaseUrl: 'http://192.168.0.209:8080/', //http://8.137.162.161:8080/
+				streamUrl: 'http://192.168.0.209:8080/api/rfid/realtime/stream',
 				listPostData: {
 					pageNum: 1,
 					pageSize: 20,
@@ -329,11 +329,11 @@
 				dialogVisible: false,
 				outTrayDialogVisible: false,
 				outTray: '0',
-				outListPostData: [],
-				trayIdList: [],
+				defaultOutTray: [],//默认出库托盘
+				outListPostData: [],//出库托盘列表
+				trayIdList: [],//托盘ID列表
 				trayIdList2: [],
 				outLoading: false,
-				defaultOutTray: [],
 				filterMethod(query, item) {
 					return item.label.indexOf(query) > -1;
 				}
@@ -346,9 +346,10 @@
 			this.searchAllboundRecords();
 		},
 		methods: {
+			// 处理出库托盘点击事件
 			handleOutTrayClick() {
 				if (this.outTray == '1') {
-					this.$message.error('请先关闭已选择的出库托盘');
+					this.$message.error('请先关闭已存在的出库托盘');
 					return;
 				}
 				this.outTrayDialogVisible = true;
@@ -367,6 +368,17 @@
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(data)
+				});
+			},
+			// 封装 JSON GET 请求
+			get(url, data) {
+				let fullUrl = url;
+				if (data && Object.keys(data).length > 0) {
+					const params = new URLSearchParams(data);
+					fullUrl += '?' + params.toString();
+				}
+				return this.request(fullUrl, {
+					method: 'GET'
 				});
 			},
 			// 格式化日期为 YYYY-MM-DD
@@ -399,12 +411,11 @@
 					method: 'GET',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
 				}).then(res => {
-					console.log(res.data, '返回查询结果');
 					if (res.data && res.data.length > 0) {
 						this.outTray = '1';
 						this.outListPostData = res.data.map(item => item.trayId);
 						this.defaultOutTray = res.data.map(item => item.operationNo);
-						console.log(this.defaultOutTray, '默认出库托盘');
+						// console.log(this.defaultOutTray, '默认出库托盘');
 					}
 				});
 			},
@@ -479,7 +490,7 @@
 					console.error('获取托盘ID列表失败:', error);
 				});
 			},
-			// 查询数据
+			// 默认数据列表
 			search() {
 				this.post('api/rfid/page', this.listPostData).then(res => {
 					this.tableData = res.data.records.map(item => ({
@@ -516,6 +527,24 @@
 				this.listPostData.pageNum = 1;
 				this.search();
 			},
+			// 异常数据列表
+			searchException() {
+				console.log(this.defaultOutTray, '查询异常数据');
+
+				return
+				this.get('api/rfid/operations/{operationNo}/outbound/issues', this.listPostData).then(res => {
+					this.tableData = res.data.records.map(item => ({
+						...item,
+						updateTime: this.formatTime(item.updateTime),
+						createTime: this.formatTime(item.createTime)
+					}));
+					this.total = res.data.total;
+				});
+			},
+
+
+
+
 			// 连接长连接
 			connectStream() {
 				if (!window.EventSource) {
@@ -533,8 +562,10 @@
 						console.log('长连接已连接');
 						this.setStreamStatus('connected', '长连接已连接');
 					});
+					// 监听 RFID 变化事件
 					this.eventSource.addEventListener('rfid-change', (event) => {
 						this.scheduleRealtimeReload(event);
+						this.searchException();//查询异常数据
 					});
 					this.eventSource.onopen = () => {
 						console.log('EventSource 连接已打开');

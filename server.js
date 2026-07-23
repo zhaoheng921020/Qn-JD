@@ -2,7 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const targetHost = "http://8.137.162.161"; // 目标服务器主机名或IP地址192.168.0.209
+const targetHost = "https://8.137.162.161";
 const targetPort = 8080;
 const localPort = 3000;
 
