@@ -173,6 +173,7 @@
 				exceptionMessage: [],//异常数据列表
 				trayIdList: [],//托盘ID列表
 				trayIdList2: [],//出库托盘ID列表
+				outList: [],//出库对象列表
 				outListPostData: [],//已保存中的出库托盘ID数组
 				defaultOutTray: [],//初始化保存值
 				outListPostlist: [],//预备出库托盘库
@@ -268,13 +269,33 @@
 					this.defaultSearch();
 				});
 			},
+
+
+			OutTraySearch() {
+				return this.request(`api/companies/${this.listPostData.storehouseId}/outbound-tray-authorizations`, {
+					method: 'GET',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				}).then(res => {
+					if (res.data.length > 0) {
+						// console.log(res.data, '已保存中的出库托盘ID数组')
+						return res.data;
+					}
+				});
+			},
+
 			defaultSearch() {
 				const storehouseId = this.listPostData.storehouseId;
 				this.post('api/rfid/page', { pageNum: 1, pageSize: 10000, storehouseId }).then(res => {
 					this.trayIdList = [...new Set(res.data.records.map(item => item.trayId))];
 					this.trayIdList2 = this.trayIdList.map(item => ({ key: item, label: item }));
 					this.OutTraySearch().then(savedOutTrayIds => {
-						this.outListPostData = savedOutTrayIds || [];
+						console.log(savedOutTrayIds, '已保存中的出库托盘ID数组')
+
+						this.outList = savedOutTrayIds;
+						console.log(this.outList, '出库对象列表')
+						const ids = savedOutTrayIds.flatMap(item => item.trayIds);
+						const newids = [...new Set(ids)];
+						this.outListPostData = newids || [];
 						this.defaultOutTray = [...this.outListPostData];
 					});
 				});
@@ -306,16 +327,7 @@
 				this.changeWarehouse();
 			},
 
-			OutTraySearch() {
-				return this.request(`api/companies/${this.listPostData.storehouseId}/outbound-tray-authorizations`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				}).then(res => {
-					if (res.data.length > 0) {
-						return res.data[0].trayIds;
-					}
-				});
-			},
+
 
 			handleChangeTransfer(val) {
 				this.outListPostlist = val;
@@ -358,6 +370,7 @@
 			// ===== 异常处理 =====
 			exceptionSearch(id) {
 				if (id) {
+					//z
 					this.exceptionMessage = [];
 					this.get(`api/rfid/${id}`).then(res => {
 						if (res.data.state.includes('异常')) {
@@ -380,6 +393,7 @@
 					this.setStreamStatus('connected', '长连接已连接');
 				};
 				this.eventSource.addEventListener('rfid-change', (event) => {
+					// 返回实时数据
 					this.scheduleRealtimeReload(event);
 				});
 				this.eventSource.onerror = () => {
@@ -388,13 +402,18 @@
 					setTimeout(() => this.connectStream(), 3000);
 				};
 			},
+
+			// 关闭长连接
 			closeStream() {
 				if (this.eventSource) {
 					this.eventSource.close();
 					this.eventSource = null;
 				}
 			},
+
+			// 处理实时数据
 			scheduleRealtimeReload(event) {
+				// 处理实时数据
 				try {
 					const data = JSON.parse(event.data);
 					this.exceptionSearch(data.recordId);
