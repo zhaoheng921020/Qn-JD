@@ -253,7 +253,7 @@
 
 			// 加载已授权的出库托盘
 			loadOutboundTrays() {
-				const url = 'api/outbound-tray-authorizations';
+				const url = 'api/companies/2/outbound-tray-authorizations';
 				this.request(url, {
 					method: 'GET',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -317,7 +317,7 @@
 				}
 
 				this.outLoading = true;
-				const url = 'api/outbound-tray-authorizations';
+				const url = 'api/companies/2/outbound-tray-authorizations';
 
 				this.request(url, {
 					method: 'PUT',
