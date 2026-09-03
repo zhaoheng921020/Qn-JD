@@ -44,7 +44,7 @@
 				}
 
 				.warehouse {
-					width: 120px;
+				
 					display: inline-block;
 
 					.el-input__inner {
@@ -327,4 +327,8 @@
 				border-color: #fd9a9c;
 
 			}
+		}
+
+	.warehouse-container .el-input__inner {
+				padding: 0 30px 0px 0px !important;
 		}

@@ -131,8 +131,7 @@
 					pageSize: 30,
 					startDateTime: "",
 					endDateTime: "",
-					trayId: "",
-					state: ""
+					trayId: ""
 				},
 				tableData: [],
 				value1: '',
@@ -222,8 +221,45 @@
 				this.$message({ message, type });
 			},
 
-			// ===== 数据加载 =====
-			loadRfidData() {
+			// ===== 页面初始化与数据加载 =====
+			searchWarehouse() {
+				this.request('api/companies/enabled', {
+					method: 'GET',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+				}).then(res => {
+					if (res.data && res.data.length > 0) {
+						this.allWarehouse = res.data;
+						// 设置默认仓库（第一个）
+						const defaultWarehouseId = res.data[0].id;
+						this.listPostData.storehouseId = defaultWarehouseId;
+						this.changeWarehouse();
+					}
+				}).catch(error => {
+					console.error('查询默认仓库失败:', error);
+				});
+			},
+
+			changeWarehouse(val) {
+				// 如果传入了新的仓库ID，重置搜索条件
+				if (val) {
+					Object.assign(this.listPostData, {
+						trayId: "",
+						endDateTime: "",
+						startDateTime: "",
+						state: "",
+						pageNum: 1,
+						pageSize: 30,
+						storehouseId: val
+					});
+					this.value1 = '';
+				}
+
+				// 确保storehouseId存在才执行查询
+				if (!this.listPostData.storehouseId) {
+					console.warn('仓库ID为空，跳过查询');
+					return;
+				}
+
 				this.post('api/rfid/page', this.listPostData).then(res => {
 					this.tableData = res.data.records.map(item => ({
 						...item,
@@ -240,7 +276,13 @@
 
 			// 加载托盘数据
 			loadTrayData() {
-				this.post('api/rfid/page', { pageNum: 1, pageSize: 10000 }).then(res => {
+				const storehouseId = this.listPostData.storehouseId;
+				if (!storehouseId) {
+					console.warn('仓库ID为空，跳过加载托盘数据');
+					return;
+				}
+
+				this.post('api/rfid/page', { pageNum: 1, pageSize: 10000, storehouseId }).then(res => {
 					// 去重获取托盘列表
 					this.trayIdList = [...new Set(res.data.records.map(item => item.trayId))];
 					this.trayIdList2 = this.trayIdList.map(item => ({ key: item, label: item }));
@@ -253,7 +295,13 @@
 
 			// 加载已授权的出库托盘
 			loadOutboundTrays() {
-				const url = 'api/outbound-tray-authorizations';
+				const storehouseId = this.listPostData.storehouseId;
+				if (!storehouseId) {
+					console.warn('仓库ID为空，跳过加载出库托盘');
+					return;
+				}
+
+				const url = `api/companies/${storehouseId}/outbound-tray-authorizations`;
 				this.request(url, {
 					method: 'GET',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -286,18 +334,18 @@
 			},
 			searchClick() {
 				this.listPostData.pageNum = 1;
-				this.loadRfidData();
+				this.changeWarehouse();
 			},
 
 			// ===== 分页 =====
 			handleCurrentChange(val) {
 				this.listPostData.pageNum = val;
-				this.loadRfidData();
+				this.changeWarehouse();
 			},
 			handleSizeChange(val) {
 				this.listPostData.pageSize = val;
 				this.listPostData.pageNum = 1;
-				this.loadRfidData();
+				this.changeWarehouse();
 			},
 
 			// ===== 出库托盘管理 =====
@@ -317,7 +365,7 @@
 				}
 
 				this.outLoading = true;
-				const url = 'api/outbound-tray-authorizations';
+				const url = `api/companies/${this.listPostData.storehouseId}/outbound-tray-authorizations`;
 
 				this.request(url, {
 					method: 'PUT',
@@ -396,7 +444,7 @@
 				}
 				// 防抖处理
 				if (this.refreshTimer) clearTimeout(this.refreshTimer);
-				this.refreshTimer = setTimeout(() => this.loadRfidData(), 500);
+				this.refreshTimer = setTimeout(() => this.changeWarehouse(), 500);
 			},
 		},
 	}
